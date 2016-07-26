@@ -137,4 +137,6 @@ init(Way) :-
     [at(C, L), dead(D), has(D, O), wants(C, O)] ->
       [at(C, L), has(C, O)]
   ],
-  random_story(Initial, Rules, Way).
+  random_story(Initial, Rules, Way),
+  print_term(Way, []),
+  halt.
