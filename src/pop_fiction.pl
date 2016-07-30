@@ -20,7 +20,6 @@ random_story(State, Rules, Way) :-
 %% rules. Can be made to backtrack with a soft cut instead.
 run_depth(_, 0, _, []) :- !.
 run_depth(State, Depth, Rules, Applied) :-
-  %% a soft cut will give us many solutions
   (random_transition(State, Rules, ChosenRule, State1) -> (
     Depth1 is Depth - 1,
     writeln(Depth1),
@@ -40,7 +39,6 @@ run_goal(State, Goal, Rules, [ChosenRule|Applied]) :-
 %% Nondeterministically transition to another state. Outputs rule used and
 %% eventual state.
 transition(State, Rules, Rule, State1) :-
-  %% ground(Rules),
   member(Rule1, Rules),
   copy_term(Rule1, Rule2),
   (L->R) = Rule2.rule,
@@ -48,7 +46,6 @@ transition(State, Rules, Rule, State1) :-
   Rule = Rule2.put(_{rule: L1->R}),
   find_some_unifier(State, Rule, State1).
 
-%% Nondeterministically transition in a random order.
 random_transition(State, Rules, ChosenRule, State1) :-
   random_permutation(Rules, Rules1),
   transition(State, Rules1, ChosenRule, State1).
@@ -66,8 +63,8 @@ find_some_unifier(State, Rule, Result) :-
   find_some_unifier(State1, Rule1, Result).
 
 %% Removes duplicate rule lists. Meant to be used with predicates which return
-%% all ways to apply rules. Rules are considered duplicate if they are the same
-%% on both sides when sorted.
+%% all ways to apply rules. Rules are considered duplicate if both sides are the
+%% same when sorted.
 remove_duplicate_rules(In, X) :-
   maplist(sorted_lhs_rules, In, SortedLhs),
   sort(1, @<, SortedLhs, SortedLhs1),
