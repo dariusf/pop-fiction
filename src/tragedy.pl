@@ -188,5 +188,7 @@ init(Way) :-
     }
   ],
   random_story(Initial, Rules, Way),
-  print_term(Way, []),
+  %% print_term(Way, []),
+  maplist(render, Way, G),
+  print_term(G, []),
   halt.

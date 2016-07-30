@@ -1,5 +1,13 @@
 
-:- module(pop_fiction, [random_story/3]).
+:- module(pop_fiction, [random_story/3, render/2]).
+
+rule(L->R, rule{name: none, rule: L->R, text: []}).
+
+render(Rule, Result) :-
+  Template = Rule.text,
+  atomic_list_concat(Template, ' ', Result).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 random_story(State, Rules, Way) :-
   %% setof(R, run_depth(State, 1, Rules, R), Ways),
@@ -74,8 +82,6 @@ sorted_lhs(Rule, -(Combined, Rule)) :-
 sorted_lhs_rules(Rules, Keys-Rules) :-
   maplist(sorted_lhs, Rules, Pairs),
   pairs_keys(Pairs, Keys).
-
-rule(L->R, rule{name: none, rule: L->R, text: []}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
