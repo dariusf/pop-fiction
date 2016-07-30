@@ -123,30 +123,4 @@ test(run_pig) :-
   remove_duplicate_rules(Y, Z),
   length(Z, 30).
 
-%% Other search strategies
-
-%% Stops after every transition. This avoids missing solutions, but we have to
-%% get 100 solutions in order to get the first solution of length 100.
-run_any_depth(_, _, _, []).
-run_any_depth(State, Depth, Rules, [L->R|Applied]) :-
-  transition(State, Rules, L->R, State1),
-  Depth1 is Depth - 1,
-  run_any_depth(State1, Depth1, Rules, Applied).
-
-test(run_any_depth) :-
-  findnsols(6, X, run_any_depth([a], 3, [[a]->[b], [a]->[a]], X), R), !,
-  R = [[], [[a]->[b]], [[a]->[a]], [[a]->[a], [a]->[b]], [[a]->[a], [a]->[a]], [[a]->[a], [a]->[a], [a]->[b]]].
-  
-%% Stops only if maximum depth is reached. Misses solutions which run out of ways
-%% to apply rules, but have not yet reached maximum depth.
-run_fixed_depth(_, 0, _, []) :- !. % cut so we don't have to do \= 0
-run_fixed_depth(State, Depth, Rules, [L->R|Applied]) :-
-  transition(State, Rules, L->R, State1),
-  Depth1 is Depth - 1,
-  run_fixed_depth(State1, Depth1, Rules, Applied).
-
-test(run_fixed_depth) :-
-  findall(X, run_fixed_depth([a],3,[[a]->[b],[a]->[a]], X), R),
-  R = [[[a]->[a], [a]->[a], [a]->[b]], [[a]->[a], [a]->[a], [a]->[a]]].
-
 :- end_tests(pop_fiction).
