@@ -1,7 +1,16 @@
 
 :- use_module(pop_fiction).
 
-init(Way) :-
+main :-
+  run,
+  halt.
+
+run :-
+  generate(Way),
+  maplist(render_rules, Way, Rendered),
+  print_term(Rendered, []).
+
+generate(Way) :-
   Initial = [
     accessible(mon_house, town),
     accessible(town, mon_house),
@@ -187,8 +196,4 @@ init(Way) :-
       text: ['Now that', D, 'was dead,', C, 'was free to take', O]
     }
   ],
-  random_story(Initial, Rules, Way),
-  %% print_term(Way, []),
-  maplist(render, Way, G),
-  print_term(G, []),
-  halt.
+  random_story(Initial, Rules, Way).

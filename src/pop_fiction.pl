@@ -1,9 +1,9 @@
 
-:- module(pop_fiction, [random_story/3, render/2]).
+:- module(pop_fiction, [random_story/3, render_rules/2]).
 
 rule(L->R, rule{name: none, rule: L->R, text: []}).
 
-render(Rule, Result) :-
+render_rules(Rule, Result) :-
   Template = Rule.text,
   atomic_list_concat(Template, ' ', Result).
 
@@ -13,7 +13,7 @@ random_story(State, Rules, Way) :-
   %% setof(R, run_depth(State, 1, Rules, R), Ways),
   %% findnsols(100, R, run_depth1(State, 2000, Rules, R), Ways),
   %% last(Ways, Way),
-  run_depth(State, 50, Rules, Way).
+  run_depth(State, 5, Rules, Way).
   %% , print_term(Way, []).
 
 %% Stops when maximum depth is reached, and when we run out of ways to apply
