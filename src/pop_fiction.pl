@@ -1,42 +1,11 @@
 
-:- module(pop_fiction, [random_story/3, random_story_goal/5, render_rules/2, render_rules/3]).
+:- module(pop_fiction, [random_story/3, random_story_goal/4, render_rules/2]).
 
 rule(L->R, rule{name: none, rule: L->R, text: []}).
 
 render_rules(Rule, Result) :-
   Template = Rule.text,
   atomic_list_concat(Template, ' ', Result).
-
-render_rules(Causality, Rule, Result) :-
-  (_->R) = Rule.rule,
-
-  %% find something with a cause
-  %% writeln(Causality),
-  %% writeln(a),
-  include(has_key(Causality), R, R1),
-  %% writeln(b),
-  maplist(get_from_assoc(Causality), R1, R2),
-  %% writeln(R2),
-
-  (is_list_empty(R2) ->
-    Additions = [];
-    (random_select(Elt, R2, _),
-    Additions = [because|Elt])),
-
-  %% writeln(d),
-
-  Template = Rule.text,
-  append(Template, Additions, Template1),
-  atomic_list_concat(Template1, ' ', Result).
-
-is_list_empty([]).
-%% is_list_empty([_|_], false).
-
-get_from_assoc(A, L, R) :-
-  get_assoc(L, A, R).
-
-has_key(A, L) :-
-  get_assoc(L, A, _).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -47,9 +16,8 @@ random_story(State, Rules, Way) :-
   run_depth(State, 20, Rules, Way).
   %% , print_term(Way, []).
 
-random_story_goal(State, Goal, Rules, Causality, Way) :-
-  empty_assoc(Causality0),
-  run_goal_incl(State, Goal, Rules, Causality0, Causality, Way).
+random_story_goal(State, Goal, Rules, Way) :-
+  run_goal_incl(State, Goal, Rules, Way).
 
 %% Stops when maximum depth is reached, and when we run out of ways to apply
 %% rules. Can be made to backtrack with a soft cut instead.
@@ -65,29 +33,12 @@ run_depth(State, Depth, Rules, Applied) :-
   )).
 
 %% Outputs all ways to transition towards some state which includes the goal.
-run_goal_incl(State, Goal, _, Causality, Causality, []) :-
+run_goal_incl(State, Goal, _, []) :-
   member(Goal, State).
-run_goal_incl(State, Goal, Rules, Causality0, Causality, [ChosenRule|Applied]) :-
+run_goal_incl(State, Goal, Rules, [ChosenRule|Applied]) :-
   \+ member(Goal, State),
   random_transition(State, Rules, ChosenRule, State1),
-  update_causality(ChosenRule, Causality0, Causality1),
-  run_goal_incl(State1, Goal, Rules, Causality1, Causality, Applied).
-
-update_causality(Rule, Causality, Causality1) :-
-  (L->R) = Rule.rule,
-  Rendering = Rule.text,
-  % anything introduced on the right side is there because of this rule
-  subtract(R, L, New),
-  maplist(reverse_pair(Rendering), New, New1),
-  foldl(update_assoc, New1, Causality, Causality1).
-
-pair(A, B, A-B).
-reverse_pair(B, A, A-B).
-
-update_assoc(K-V, A, A1) :-
-  % only update, so causality can't refer to future events. not sure if this works
-  (\+ get_assoc(K, A, V)) ->
-  put_assoc(K, A, V, A1).
+  run_goal_incl(State1, Goal, Rules, Applied).
 
 %% Outputs all ways to transition towards the goal state.
 run_goal(Goal, Goal, _, []).
