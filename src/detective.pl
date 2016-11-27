@@ -1,6 +1,8 @@
 
 :- use_module(pop_fiction).
 :- use_module(graph).
+:- use_module(library(lambda)).
+:- use_module(library(func)).
 
 main :-
   run,
@@ -9,17 +11,19 @@ main :-
 run :-
   state(Initial, Rules),
   generate(Initial, Rules, Way, Graph),
-  range(Way, R),
-  maplist(get_cause(Way, Graph), R, Causes),
+  maplist(get_cause(Way, Graph), range(Way, ~), Causes),
   maplist(render_causal, Causes, Res),
 
-  %% people(Initial, People),
-  %% writeln(People),
-  %% last(Way, KillingRule),
-  %% killed(KillingRule, Dead),
-  %% writeln(Dead),
-  %% subtract(People, [Dead], StillAlive),
-  %% person_mode(StillAlive),
+  % TODO drop the last rule
+  % TODO prevent self-references
+
+  people(Initial, People),
+  writeln(People),
+  last(Way, KillingRule),
+  killed(KillingRule, Dead),
+  writeln(Dead),
+  subtract(People, [Dead], StillAlive),
+  person_mode(StillAlive),
 
   print_term(Res, []).
 
@@ -39,6 +43,24 @@ person_mode(StillAlive) :-
   )).
   %% todo have a go back item
 
+test(Res) :- choice_prompt('Pick one:', [a, b, c], Res).
+
+% Takes a list of things and prompts for a choice of one of them. Fails if
+% nothing is chosen, otherwise is forced to always return a valid choice.
+choice_prompt(Question, Items, Result) :-
+  append(Items, ['Back\n'], Items1),
+  length(Items1, L),
+  range(1, ~ is L + 1, R),
+  writeln(Question), write('\n'),
+  maplist(\N^P^_^(write(N), write('. '), writeln(P)), R, Items1, _),
+  (getn(C), C =< L ->
+    % Fail if the last item is chosen
+    C < L, nth1(C, Items1, Result)
+  ; otherwise ->
+    writeln('Please enter a number within range\n'),
+    choice_prompt(Question, Items, Result)
+  ).
+
 talk_mode(Person) :-
   %% list topics
   %% pick a topic
@@ -51,16 +73,13 @@ topic_mode(Person) :-
   %% when max number of presses reached, remove all entries. only have an option to go back
   writeln('topic mode').
 
-getn(S) :-
-  read_string(user_input, '\n', '\r', _, S0),
-  %% TODO catch errors here and turn this into failure
-  string_to_num(S0, S).
+getn(S) :- gets(S0), string_to_num(S0, S).
 
 gets(S) :-
   read_string(user_input, '\n', '\r', _, S).
 
 string_to_num(S, N) :-
-  number_codes(N, S).
+  catch(number_codes(N, S), _, fail).
 
 people(Initial, People) :-
   findall(X, member(person(X), Initial), People).
