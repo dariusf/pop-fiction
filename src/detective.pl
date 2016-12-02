@@ -119,9 +119,9 @@ topic_mode(Killer, StillAlive, Person, N, Rules, Graph, Assignments, Rendered) :
   % writeln(N),
   % writeln(graph_to_list(Graph, ~)),
   nth0(N, Rules, Rule),
-  writeln(render_rule(Rule, ~)),
   (edges(N, Graph, [Next]) -> Choices = ['Why?']; Choices = []),
-  (choice_prompt('Press further', Choices, _, _) ->
+  atomic_list_concat([Person, ': ', render_rule(Rule, ~)], Speech),
+  (choice_prompt(Speech, Choices, _, _) ->
     % this has to succeed since there must be something there
     topic_mode(Killer, StillAlive, Person, Next, Rules, Graph, Assignments, Rendered)
   ; talk_mode(Killer, StillAlive, Person, Rules, Graph, Assignments, Rendered)).
