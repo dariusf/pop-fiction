@@ -7,11 +7,67 @@ main :-
   halt.
 
 run :-
-  generate(Way, Graph),
+  state(Initial, Rules),
+  generate(Initial, Rules, Way, Graph),
   range(Way, R),
   maplist(get_cause(Way, Graph), R, Causes),
   maplist(render_causal, Causes, Res),
+
+  %% people(Initial, People),
+  %% writeln(People),
+  %% last(Way, KillingRule),
+  %% killed(KillingRule, Dead),
+  %% writeln(Dead),
+  %% subtract(People, [Dead], StillAlive),
+  %% person_mode(StillAlive),
+
   print_term(Res, []).
+
+person_mode(StillAlive) :-
+  length(StillAlive, L),
+  range(0, L, X),
+  maplist(pair, X, StillAlive, Pairs),
+  foreach(member(N-P, Pairs), (write(N), write('. '), writeln(P))),
+  writeln('Who do you want to talk to?'),
+  (getn(S) -> (
+    Y is S + 1,
+    writeln(Y),
+    writeln(S)
+  ); (
+    writeln('Please enter a number'),
+    person_mode(StillAlive)
+  )).
+  %% todo have a go back item
+
+talk_mode(Person) :-
+  %% list topics
+  %% pick a topic
+  %% go back
+  writeln('talk mode').
+
+topic_mode(Person) :-
+  %% list facts
+  %% input a number to press on that fact. this can update the list of facts
+  %% when max number of presses reached, remove all entries. only have an option to go back
+  writeln('topic mode').
+
+getn(S) :-
+  read_string(user_input, '\n', '\r', _, S0),
+  %% TODO catch errors here and turn this into failure
+  string_to_num(S0, S).
+
+gets(S) :-
+  read_string(user_input, '\n', '\r', _, S).
+
+string_to_num(S, N) :-
+  number_codes(N, S).
+
+people(Initial, People) :-
+  findall(X, member(person(X), Initial), People).
+
+killed(Rule, Dead) :-
+  (_->R) = Rule.rule,
+  once(member(dead(Dead), R)).
 
 render_causal(Rule-Cause, Res) :-
   render_rule(Rule, Rule1),
@@ -28,7 +84,7 @@ get_cause(Rules, G, V0, V-Cause) :-
       text: ['of no known reason']
     }).
 
-generate(Way, Graph) :-
+state(Initial, Rules) :-
   Initial = [
     person(agatha),
     person(ben),
@@ -72,7 +128,9 @@ generate(Way, Graph) :-
         [person(A), person(B), person(C), like(A, B), like(A, B), hate(C, B), hate(C, B)],
       text: [C, 'became jealous of', A, 'and', B]
     }
-  ],
+  ].
+
+generate(Initial, Rules, Way, Graph) :-
   random_story_goal(Initial, dead(_), Rules, Way),
 
   range(Way, Ix),
