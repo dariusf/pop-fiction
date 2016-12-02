@@ -3,6 +3,7 @@
 :- use_module(graph).
 :- use_module(library(lambda)).
 :- use_module(library(func)).
+:- use_module(library(list_util)).
 
 main :-
   run,
@@ -11,67 +12,119 @@ main :-
 run :-
   state(Initial, Rules),
   generate(Initial, Rules, Way, Graph),
+
+  % Compute causes for each rule
   maplist(get_cause(Way, Graph), range(Way, ~), Causes),
-  maplist(render_causal, Causes, Res),
 
-  % TODO drop the last rule
-  % TODO prevent self-references
+  % Render
+  maplist(render_causal, Causes, Rendered),
 
+  % gtrace,
+  % Remove answer, and add whatever it was pointing to to the closure
+  Last is length(vertices(Graph, ~), ~) - 1,
+  exclude(==(Last), minimal_closure(Graph, ~), FactsToDistribute0),
+  append(FactsToDistribute0, edges(Last, Graph, ~), FactsToDistribute),
+
+  % TODO prevent self-references?
+
+  % Figure out who is still alive
   people(Initial, People),
-  writeln(People),
   last(Way, KillingRule),
   killed(KillingRule, Dead),
-  writeln(Dead),
+  killer(KillingRule, Killer),
   subtract(People, [Dead], StillAlive),
-  person_mode(StillAlive),
 
-  print_term(Res, []).
+  % Ensure that there are enough facts to distribute. Failure down the road will cause backtracking
+  % anyway, and accounting for it here explicitly seems better.
+  length(FactsToDistribute, ~) >= length(StillAlive, ~),
 
-person_mode(StillAlive) :-
-  length(StillAlive, L),
-  range(0, L, X),
-  maplist(pair, X, StillAlive, Pairs),
-  foreach(member(N-P, Pairs), (write(N), write('. '), writeln(P))),
-  writeln('Who do you want to talk to?'),
-  (getn(S) -> (
-    Y is S + 1,
-    writeln(Y),
-    writeln(S)
-  ); (
-    writeln('Please enter a number'),
-    person_mode(StillAlive)
-  )).
-  %% todo have a go back item
+  % Assign rules
 
-test(Res) :- choice_prompt('Pick one:', [a, b, c], Res).
+  assign_rules(StillAlive, FactsToDistribute, Assignments),
+
+  % Debugging
+
+  % write('facts '), writeln(FactsToDistribute),
+  % write('assignments '), writeln(assoc_to_list(Assignments, ~)),
+  % print_term(Rendered, []),
+
+  % Prevent unintended backtracking
+  !,
+  % writeln('UNINTENTIONAL BACKTRACKING?'),
+
+  person_mode(Killer, StillAlive, Way, Graph, Assignments, Rendered).
+
+% Distributes the given rules amongst the people, returning an assoc of assignments.
+assign_rules(_, [], Assignments) :- empty_assoc(Assignments).
+assign_rules([P|People], [R|Rules], Assignments) :-
+  assign_rules(append(People, [P], ~), Rules, Assignments0),
+  (get_assoc(P, Assignments0, Current) ->
+    put_assoc(P, Assignments0, [R|Current], Assignments)
+  ; put_assoc(P, Assignments0, [R], Assignments)).
+
+% Finds the minimal set of nodes such that its transitive closure covers the entire graph.
+minimal_closure(Graph, Nodes) :-
+  reverse(range(vertices(Graph, ~), ~), Range), % start from the back because edges point backwards
+  find_minimal_set(Graph, Range, Nodes).
+
+find_minimal_set(_, [], []).
+find_minimal_set(Graph, [Current|ToVisit], [Current|Res]) :-
+  graph:closure(Graph, Current, Closure),
+  subtract(ToVisit, Closure, Rest),
+  find_minimal_set(Graph, Rest, Res).
+
+person_mode(Killer, StillAlive, Rules, Graph, Assignments, Rendered) :-
+  choice_prompt('Whom do you wish to speak to?', StillAlive, _, Person) ->
+    talk_mode(Killer, StillAlive, Person, Rules, Graph, Assignments, Rendered)
+  ; guess_mode(Killer, StillAlive, Rules, Graph, Assignments, Rendered).
+
+guess_mode(Killer, StillAlive, Rules, Graph, Assignments, Rendered) :-
+  choice_prompt('Who was the killer?', StillAlive, _, Result) ->
+    ((Result = Killer ->
+      writeln('You are right!');
+      write('The killer got away (it was '), write(Killer), writeln(')')),
+      print_term(Rendered, []), write('\n')
+    ); person_mode(Killer, StillAlive, Rules, Graph, Assignments, Rendered).
 
 % Takes a list of things and prompts for a choice of one of them. Fails if
 % nothing is chosen, otherwise is forced to always return a valid choice.
-choice_prompt(Question, Items, Result) :-
+choice_prompt(Question, Items, Index, Result) :-
   append(Items, ['Back\n'], Items1),
   length(Items1, L),
   range(1, ~ is L + 1, R),
   writeln(Question), write('\n'),
   maplist(\N^P^_^(write(N), write('. '), writeln(P)), R, Items1, _),
-  (getn(C), C =< L ->
+  (getn(Index), Index =< L ->
     % Fail if the last item is chosen
-    C < L, nth1(C, Items1, Result)
+    Index < L, nth1(Index, Items1, Result)
   ; otherwise ->
     writeln('Please enter a number within range\n'),
-    choice_prompt(Question, Items, Result)
+    choice_prompt(Question, Items, Index, Result)
   ).
 
-talk_mode(Person) :-
-  %% list topics
-  %% pick a topic
-  %% go back
-  writeln('talk mode').
+talk_mode(Killer, StillAlive, Person, Rules, Graph, Assignments, Rendered) :-
+  % writeln('talk mode'),
+  get_assoc(Person, Assignments, Assigned),
+  maplist(Rules+\A^Res^nth0(A, Rules, Res), Assigned, RulesToTalkAbout),
+  maplist(get_topic, RulesToTalkAbout, Topics),
+  (choice_prompt('What would you like to talk about?', Topics, Result, _) ->
+    topic_mode(Killer, StillAlive, Person, nth1(Result, Assigned, ~), Rules, Graph, Assignments, Rendered)
+  ; person_mode(Killer, StillAlive, Rules, Graph, Assignments, Rendered)).
 
-topic_mode(Person) :-
-  %% list facts
-  %% input a number to press on that fact. this can update the list of facts
-  %% when max number of presses reached, remove all entries. only have an option to go back
-  writeln('topic mode').
+get_topic(X, X.topic).
+
+topic_mode(Killer, StillAlive, Person, N, Rules, Graph, Assignments, Rendered) :-
+  % Debugging
+  % writeln('topic mode'),
+  % writeln(N),
+  % writeln(graph_to_list(Graph, ~)),
+  nth0(N, Rules, Rule),
+  writeln(render_rule(Rule, ~)),
+  (edges(N, Graph, [Next]) -> Choices = ['Why?']; Choices = []),
+  (choice_prompt('Press further', Choices, _, _) ->
+    % this has to succeed since there must be something there
+    topic_mode(Killer, StillAlive, Person, Next, Rules, Graph, Assignments, Rendered)
+  ; talk_mode(Killer, StillAlive, Person, Rules, Graph, Assignments, Rendered)).
 
 getn(S) :- gets(S0), string_to_num(S0, S).
 
@@ -88,6 +141,10 @@ killed(Rule, Dead) :-
   (_->R) = Rule.rule,
   once(member(dead(Dead), R)).
 
+killer(Rule, Dead) :-
+  (_->R) = Rule.rule,
+  once(member(person(Dead), R)).
+
 render_causal(Rule-Cause, Res) :-
   render_rule(Rule, Rule1),
   render_rule(Cause, Cause1),
@@ -96,7 +153,9 @@ render_causal(Rule-Cause, Res) :-
 get_cause(Rules, G, V0, V-Cause) :-
   nth0(V0, Rules, V),
   edges(V0, G, E),
-  ([C] = E -> nth0(C, Rules, Cause); Cause =
+  ([C] = E ->
+    nth0(C, Rules, Cause)
+  ; Cause =
     rule{
       name: no_reason,
       rule: [] -> [],
@@ -111,41 +170,48 @@ state(Initial, Rules) :-
     has(charles, flowers)
   ],
   Rules = [
+    % TODO all but the first two rules don't really admit goood causal intersections
     rule{
       name: like,
       rule: [person(A), person(B)] ->
         [person(A), person(B), like(A, B)],
-      text: [A, 'began to like', B]
+      text: [A, 'began to like', B],
+      topic: love
     },
     rule{
       name: hate,
       rule: [person(A), person(B)] ->
         [person(A), person(B), hate(A, B)],
-      text: [A, 'began to hate', B]
+      text: [A, 'began to hate', B],
+      topic: hatred
     },
     rule{
       name: steal,
       rule: [person(A), person(B), has(B, I), hate(A, B)] ->
         [person(A), person(B), has(A, I), hate(A, B), hate(B, A)],
-      text: [A, 'stole', I, 'from', B]
+      text: [A, 'stole', I, 'from', B],
+      topic: theft
     },
     rule{
       name: give,
       rule: [person(A), person(B), has(A, I), like(A, B)] ->
         [person(A), person(B), has(B, I), like(A, B), like(B, A)],
-      text: [A, 'gave', I, 'to', B]
+      text: [A, 'gave', I, 'to', B],
+      topic: kindness
     },
     rule{
       name: kill,
       rule: [person(A), person(B), hate(A, B), hate(A, B)] ->
         [person(A), dead(B)],
-      text: [A, 'killed', B, 'out of spite']
+      text: [A, 'killed', B, 'out of spite'],
+      topic: murder
     },
     rule{
       name: jealousy,
       rule: [person(A), person(B), person(C), like(A, B), like(A, B)] ->
         [person(A), person(B), person(C), like(A, B), like(A, B), hate(C, B), hate(C, B)],
-      text: [C, 'became jealous of', A, 'and', B]
+      text: [C, 'became jealous of', A, 'and', B],
+      topic: envy
     }
   ].
 
@@ -212,8 +278,8 @@ most_probable_cause(Rule, Rules, Result) :-
   maplist(rule_intersection(Rule), Rules, CauseSizes),
   [First|Rest] = CauseSizes ->
     % reversed so that items earlier in the list get priority
-    (reverse(Rest, Rev), foldl(larger_size, Rev, First, Result0), fst(Result0, Result));
-    Result = rule{
+    (reverse(Rest, Rev), foldl(larger_size, Rev, First, Result0), fst(Result0, Result))
+  ; Result = rule{
       name: no_reason,
       rule: [] -> [],
       text: ['of no known reason']
