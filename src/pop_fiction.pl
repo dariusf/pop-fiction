@@ -1,9 +1,9 @@
 
-:- module(pop_fiction, [random_story/3, random_story_goal/4, render_rules/2]).
+:- module(pop_fiction, [random_story/3, random_story_goal/4, render_rule/2]).
 
 rule(L->R, rule{name: none, rule: L->R, text: []}).
 
-render_rules(Rule, Result) :-
+render_rule(Rule, Result) :-
   Template = Rule.text,
   atomic_list_concat(Template, ' ', Result).
 
