@@ -1,4 +1,13 @@
+install(Pack, _) :-
+  always(pack_install(Pack, [interactive(false)])).
+
+always(Goal) :-
+  Goal; true.
+
 :-
-  pack_install(func), % 0.4.2
-  pack_install(lambda), % 1.0.0
+  Packs = [
+    func, % 0.4.2
+    lambda % 1.0.0
+  ],
+  maplist(install, Packs, _),
   halt.
