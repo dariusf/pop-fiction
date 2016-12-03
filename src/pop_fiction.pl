@@ -1,9 +1,9 @@
 
-:- module(pop_fiction, [random_story/3, render_rules/2]).
+:- module(pop_fiction, [random_story/3, random_story_goal/4, render_rule/2]).
 
 rule(L->R, rule{name: none, rule: L->R, text: []}).
 
-render_rules(Rule, Result) :-
+render_rule(Rule, Result) :-
   Template = Rule.text,
   atomic_list_concat(Template, ' ', Result).
 
@@ -13,8 +13,11 @@ random_story(State, Rules, Way) :-
   %% setof(R, run_depth(State, 1, Rules, R), Ways),
   %% findnsols(100, R, run_depth1(State, 2000, Rules, R), Ways),
   %% last(Ways, Way),
-  run_depth(State, 5, Rules, Way).
+  run_depth(State, 20, Rules, Way).
   %% , print_term(Way, []).
+
+random_story_goal(State, Goal, Rules, Way) :-
+  run_goal_incl(State, Goal, Rules, Way).
 
 %% Stops when maximum depth is reached, and when we run out of ways to apply
 %% rules. Can be made to backtrack with a soft cut instead.
@@ -29,7 +32,15 @@ run_depth(State, Depth, Rules, Applied) :-
     Applied = []
   )).
 
-%% Outputs all ways to transition towards the goal.
+%% Outputs all ways to transition towards some state which includes the goal.
+run_goal_incl(State, Goal, _, []) :-
+  member(Goal, State).
+run_goal_incl(State, Goal, Rules, [ChosenRule|Applied]) :-
+  \+ member(Goal, State),
+  random_transition(State, Rules, ChosenRule, State1),
+  run_goal_incl(State1, Goal, Rules, Applied).
+
+%% Outputs all ways to transition towards the goal state.
 run_goal(Goal, Goal, _, []).
 run_goal(State, Goal, Rules, [ChosenRule|Applied]) :-
   State \= Goal,

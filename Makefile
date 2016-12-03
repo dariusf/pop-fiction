@@ -11,3 +11,6 @@ exe:
 
 clean:
 	rm -rf _build
+
+install:
+	swipl install.pl
